@@ -6,8 +6,8 @@ import requests
 import os
 
 # Ortam değişkenlerinden token ve chat ID al
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+BOT_TOKEN = '7829367094:AAGSG5ofZ6Cz6s7myex5Ad_hVLHYKVr0bHI'
+CHAT_ID = '906816135'
 
 # Hisse listesi
 symbols = ["ADEL.IS", "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS", "AKBNK.IS", "AKCNS.IS"]
