@@ -1,0 +1,28 @@
+name: Günlük Sinyal Botu
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Türkiye saatiyle her sabah 09:00
+  workflow_dispatch:      # Manuel çalıştırmak için
+
+jobs:
+  run-sinyal-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v3
+
+      - name: Python kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Gerekli paketleri yükle
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Botu çalıştır
+        run: |
+          python sinyal.py
