@@ -35,7 +35,7 @@ symbols = ["ADEL.IS", "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS",
     "YEOTK.IS", "YYLGD.IS", "ZOREN.IS"]
 
 # Veri çekme fonksiyonu
-def get_data(symbol, period='6mo', interval='1d'):
+def get_data(symbol, period='12mo', interval='1w'):
     df = yf.download(symbol, period=period, interval=interval, auto_adjust=True, progress=False)
     df.dropna(inplace=True)
     return df
