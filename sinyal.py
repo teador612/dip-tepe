@@ -1,16 +1,28 @@
-import numpy as np
+!pip install yfinance requests --quiet
 import yfinance as yf
 import pandas as pd
-from scipy.signal import argrelextrema
+import numpy as np
+from scipy.stats import linregress
 import requests
-import os
 
-# Ortam değişkenlerinden token ve chat ID al
+# Telegram Bot Token ve Chat ID
 BOT_TOKEN = '7829367094:AAGSG5ofZ6Cz6s7myex5Ad_hVLHYKVr0bHI'
 CHAT_ID = '906816135'
 
-# Hisse listesi
-symbols = ["ADEL.IS", "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS",
+# Telegram mesaj gönderme fonksiyonu
+def send_telegram_message(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            print("✅ Telegram mesajı gönderildi.")
+        else:
+            print(f"❌ Mesaj gönderilemedi. Hata: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Telegram mesajı gönderilemedi. Hata: {e}")
+
+# İzlenecek BIST hisseleri
+tickers = ["ADEL.IS", "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS",
     "AKBNK.IS", "AKCNS.IS", "AKFGY.IS", "AKFYE.IS", "AKSA.IS",
     "AKSEN.IS", "ALARK.IS", "ALBRK.IS", "ALFAS.IS", "ALTNY.IS",
     "ANSGR.IS", "ARCLK.IS", "ARDYZ.IS", "ASELS.IS", "ASTOR.IS",
@@ -34,58 +46,47 @@ symbols = ["ADEL.IS", "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS",
     "TUPRS.IS", "TURSG.IS", "ULKER.IS", "VESBE.IS", "VESTL.IS",
     "YEOTK.IS", "YYLGD.IS", "ZOREN.IS"]
 
-# Veri çekme fonksiyonu
-def get_data(symbol, period='1mo', interval='1d'):
-    df = yf.download(symbol, period=period, interval=interval, auto_adjust=True, progress=False)
-    df.dropna(inplace=True)
-    return df
+# Parametreler
+length = 100       # Regresyon uzunluğu
+dev = 2            # Standart sapma katsayısı
+interval = '1h'    # Saatlik periyot
+period = '30d'     # Son 30 gün
 
-# Dip ve tepe tespiti (son mum için)
-def detect_last_extrema(df, symbol):
-    close = df['Close']
-    last_index = len(df) - 1
+# BUY sinyali kontrol fonksiyonu
+def check_buy_signal(ticker):
+    try:
+        df = yf.download(ticker, interval=interval, period=period, progress=False)
+        if len(df) < length + 2:
+            return None
+        close = df['Close']
+        y = close[-length:]
+        x = np.arange(length)
+        slope, intercept, _, _, _ = linregress(x, y)
+        reg_line = slope * x + intercept
+        deviation = np.std(y - reg_line)
+        lower_band = reg_line[-1] - dev * deviation
+        current_price = close.iloc[-1]
+        prev_price = close.iloc[-2]
 
-    price_lows = argrelextrema(close.values, np.less_equal, order=3)[0]
-    price_highs = argrelextrema(close.values, np.greater_equal, order=3)[0]
+        # Fiyat alt bandını yukarı kesiyorsa (en son mumda)
+        if prev_price > lower_band and current_price < lower_band:
+            return ticker
+    except Exception as e:
+        print(f"❌ {ticker} hata: {e}")
+        return None
 
-    result = None
-    if last_index in price_lows:
-        result = ("Alış", df.index[last_index].date(), close.iloc[last_index].item())
-    elif last_index in price_highs:
-        result = ("Satış", df.index[last_index].date(), close.iloc[last_index].item())
+# Tarama işlemi
+buy_signals = []
 
-    return result
+for ticker in tickers:
+    print(f"🔍 Taranıyor: {ticker}")
+    result = check_buy_signal(ticker)
+    if result:
+        buy_signals.append(result)
 
-# Telegram'a mesaj gönderme
-def send_telegram_message(message):
-    if not BOT_TOKEN or not CHAT_ID:
-        print("❌ Telegram bilgileri eksik.")
-        return
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": message,
-        "parse_mode": "HTML"
-    }
-    requests.post(url, data=payload)
-
-# Sinyal tablosunu oluştur
-signal_data = []
-
-for symbol in symbols:
-    df = get_data(symbol)
-    if not df.empty:
-        signal = detect_last_extrema(df, symbol)
-        if signal:
-            sinyal_tipi, tarih, fiyat = signal
-            signal_data.append((symbol, sinyal_tipi, tarih, fiyat))
-
-# Telegram mesajı oluştur ve gönder
-if signal_data:
-    message = "<b>📊 Güncel Sinyaller:</b>\n\n"
-    for symbol, tip, tarih, fiyat in signal_data:
-        message += f"• <b>{symbol}</b> - <i>{tip}</i> - {tarih} - {fiyat:.2f} ₺\n"
+# Sonuçları Telegram'a gönder
+if buy_signals:
+    message = "📈 BUY Sinyali Veren Hisseler:\n" + "\n".join(buy_signals)
+    send_telegram_message(message)
 else:
-    message = "⚠️ Bugün için dip/tepe sinyali yok."
-
-send_telegram_message(message)
+    send_telegram_message("🚫 BUY sinyali veren hisse bulunamadı.")
