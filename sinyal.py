@@ -55,7 +55,7 @@ period = '30d'     # Son 30 gün
 def check_buy_signal(ticker):
     try:
         df = yf.download(ticker, interval=interval, period=period, progress=False)
-        if len(df) < length + 2:
+        if len(df) < length + 3:
             return None
         close = df['Close']
         y = close[-length:]
@@ -66,9 +66,10 @@ def check_buy_signal(ticker):
         lower_band = reg_line[-1] - dev * deviation
         current_price = close.iloc[-1]
         prev_price = close.iloc[-2]
+        prev2_price = close.iloc[-3]
 
-        # Fiyat alt bandını yukarı kesiyorsa (en son mumda)
-        if prev_price > lower_band and current_price < lower_band:
+        # Son 3 mumda fiyat alt bandı kesiliyorsa
+        if (prev2_price > lower_band and prev_price > lower_band and current_price < lower_band):
             return ticker
     except Exception as e:
         print(f"❌ {ticker} hata: {e}")
@@ -85,7 +86,7 @@ for ticker in tickers:
 
 # Sonuçları Telegram'a gönder
 if buy_signals:
-    message = "📈 BUY Sinyali Veren Hisseler:\n" + "\n".join(buy_signals)
+    message = "📈 BUY Sinyali Veren Hisseler (Son 3 Mumda):\n" + "\n".join(buy_signals)
     send_telegram_message(message)
 else:
     send_telegram_message("🚫 BUY sinyali veren hisse bulunamadı.")
